@@ -1,0 +1,25 @@
+{
+    "name": "Slotworks",
+    "version": "1.0.0",
+    "description": "The Library for all SLotworks hardware functions",
+    "keywords": "DMX,ARTNET,OSC,SACN,LED,stepper",
+    "authors": [
+        {
+            "name": "Pim Swinkels",
+            "url": "https://github.com/PimSwinkelsCreative",
+            "maintainer": true
+        }
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/PimSwinkelsCreative/slotworks"
+    },
+    "license": "MIT",
+    "frameworks": "arduino",
+    "platforms": "espressif32",
+    "headers": "Slotworks.h",
+    "dependencies": 
+    {
+        "HT16K33": "https://github.com/lpaseen/ht16k33#v1.0.3"
+    }
+}
