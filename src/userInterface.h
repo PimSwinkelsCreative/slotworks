@@ -8,6 +8,12 @@
 void setup7Segment();
 void displayInteger(int16_t number, bool leadingZeroes = false);
 
+// button interface:
+void readButtons();
+bool downButtonPressed();
+bool upButtonPressed();
+bool enterButtonPressed();
+
 // debug leds:
 void setupDebugLeds();
 void setDebugLed(uint8_t ledNr, bool state = true);
