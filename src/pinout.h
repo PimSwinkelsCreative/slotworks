@@ -4,7 +4,7 @@
 // DMX:
 #define DMX_TX_EN 3
 #define DMX_TX 4
-#define DMX_RS 5
+#define DMX_RX 5
 
 // I2C:
 #define I2C_INTN 6

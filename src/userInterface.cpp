@@ -14,7 +14,7 @@ uint32_t start, stop;
 
 void setup7Segment()
 {
-    HT.begin(0x00); // only the I2C address needs to be given as input, the address is added in the class
+    HT.begin(0x00); // only the I2C address offset needs to be given as input, the address is added in the class
     HT.setBrightness(8); // 50% brightness
     HT.displayOn();
 }
