@@ -5,6 +5,11 @@
 // 7 segment display:
 HT16K33 HT;
 
+// buttons
+bool downButtonState = false;
+bool upButtonState = false;
+bool enterButtonState = false;
+
 uint32_t start, stop;
 
 void setup7Segment()
@@ -46,7 +51,35 @@ void displayInteger(int16_t number, bool leadingZeroes)
     }
 
     HT.sendLed();
-    Serial.println(number);
+}
+
+void readButtons()
+{
+    uint16_t keysBitmap[3];
+    if (HT.keyINTflag()) {
+        HT.readKeyRaw(keysBitmap);
+    } else {
+        keysBitmap[0] = 0;
+    }
+
+    downButtonState = keysBitmap[0] & 0b1;
+    upButtonState = keysBitmap[0] & 0b10;
+    enterButtonState = keysBitmap[0] & 0b100;
+}
+
+bool downButtonPressed()
+{
+    return downButtonState;
+}
+
+bool upButtonPressed()
+{
+    return upButtonState;
+}
+
+bool enterButtonPressed()
+{
+    return enterButtonState;
 }
 
 // debug leds:
