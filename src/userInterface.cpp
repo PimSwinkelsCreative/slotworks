@@ -5,16 +5,22 @@
 // 7 segment display:
 HT16K33 HT;
 
+uint16_t displayBlinkTime = defaultDisplayBlinkTime; // time in milliseconds
+
 // buttons
-HT16K33Button downButton(0);
-HT16K33Button upButton(1);
+HT16K33Button downButton(0, true);
+HT16K33Button upButton(1, true);
 HT16K33Button enterButton(2);
 uint16_t buttonScrollSpeedInterval = 100; // milliseconds before auto increase while scrolling
 uint16_t buttonScrollHighSpeedTime = 2000; // time after which the auto increase will get even faster
 
+uint64_t lastButtonPress = 0;
+
 // stating
 UIMode currentMode = OFF;
 void (*UICallbackFunction)(uint16_t);
+bool displayBlinkActive = false;
+uint64_t lastDisplayBlinkStart = 0;
 
 // variables
 uint16_t numberToDisplay = 0;
@@ -64,6 +70,7 @@ void clearDisplay()
     HT.setDisplayRaw(0, sevenSegmentASCII[0]);
     HT.setDisplayRaw(2, sevenSegmentASCII[0]);
     HT.setDisplayRaw(4, sevenSegmentASCII[0]);
+    HT.setDisplayRaw(6, sevenSegmentASCII[0]);
     HT.sendLed();
 }
 
@@ -114,19 +121,24 @@ void setUserInterfaceMode(UIMode mode, void (*callback)(uint16_t))
     UICallbackFunction = callback;
 }
 
+void startDisplayBlink(uint16_t duration)
+{
+    displayBlinkActive = true;
+    displayBlinkTime = duration;
+    lastDisplayBlinkStart = millis();
+}
+
 void updateUserInterface()
 {
     // poll the buttons and set their flags:
     readButtons();
 
-    // update the display:
+    // update the user interface:
     switch (currentMode) {
     case OFF:
-        /* code */
         clearDisplay();
         break;
     case DMXADDR:
-        /* code */
         if (upButton.getPressFlag(true)) {
             if (numberToDisplay < 512) {
                 numberToDisplay++;
@@ -142,10 +154,20 @@ void updateUserInterface()
             UICallbackFunction(numberToDisplay);
         }
 
-        displayInteger(numberToDisplay);
+        if (displayBlinkActive) {
+            if (millis() - lastDisplayBlinkStart < displayBlinkTime) {
+                clearDisplay();
+            } else {
+                displayBlinkActive = false;
+            }
+        }
+        if (!displayBlinkActive) {
+            displayInteger(numberToDisplay);
+        }
+
         break;
     case IPADDR:
-        /* code */
+
         break;
 
     default:
@@ -153,13 +175,15 @@ void updateUserInterface()
     }
 }
 
-HT16K33Button::HT16K33Button(uint8_t buttonIndex)
+HT16K33Button::HT16K33Button(uint8_t buttonIndex, bool scrollingEnabled)
 {
     uint64_t bitmap = 1 << buttonIndex;
 
     _buttonBitmap[0] = bitmap & 0xFFFF; // 16 LSB of bitmap
     _buttonBitmap[1] = (bitmap & 0xFFFF0000) >> 16; // middle 16 bits of bitmap
     _buttonBitmap[2] = (bitmap & 0xFFFF00000000) >> 32; // 16 MSB of bitmap
+
+    _scrollingEnabled = scrollingEnabled;
 
     _state = false;
     _prevState = false;
@@ -181,17 +205,19 @@ void HT16K33Button::update(uint16_t keysBitmap[3])
         _buttonPressStartMillis = millis();
     }
 
-    uint64_t now = millis();
-    if (_state && (now - _buttonPressStartMillis >= 3 * buttonScrollSpeedInterval)) {
-        if (now - _buttonPressStartMillis >= buttonScrollHighSpeedTime) {
-            if (now - _prevScrollUpdateMillis >= buttonScrollSpeedInterval / 5) {
-                _prevScrollUpdateMillis = now;
-                _pressFlag = true;
-            }
-        } else {
-            if (now - _prevScrollUpdateMillis >= buttonScrollSpeedInterval) {
-                _prevScrollUpdateMillis = now;
-                _pressFlag = true;
+    if (_scrollingEnabled) {
+        uint64_t now = millis();
+        if (_state && (now - _buttonPressStartMillis >= 3 * buttonScrollSpeedInterval)) {
+            if (now - _buttonPressStartMillis >= buttonScrollHighSpeedTime) {
+                if (now - _prevScrollUpdateMillis >= buttonScrollSpeedInterval / 5) {
+                    _prevScrollUpdateMillis = now;
+                    _pressFlag = true;
+                }
+            } else {
+                if (now - _prevScrollUpdateMillis >= buttonScrollSpeedInterval) {
+                    _prevScrollUpdateMillis = now;
+                    _pressFlag = true;
+                }
             }
         }
     }
