@@ -19,7 +19,8 @@ void displayInteger(int16_t number, bool leadingZeroes = false);
 void setupDebugLeds();
 void setDebugLed(uint8_t ledNr, bool state = true);
 
-// buttons:
+
+
 void readButtons();
 class HT16K33Button {
 private:
@@ -27,6 +28,8 @@ private:
     bool _state;
     bool _prevState;
     bool _pressFlag;
+    uint32_t _buttonPressStartMillis;
+    uint32_t _prevScrollUpdateMillis;
 
 public:
     HT16K33Button(uint8_t _buttonIndex);

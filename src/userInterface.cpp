@@ -9,6 +9,8 @@ HT16K33 HT;
 HT16K33Button downButton(0);
 HT16K33Button upButton(1);
 HT16K33Button enterButton(2);
+uint16_t buttonScrollSpeedInterval = 100; // milliseconds before auto increase while scrolling
+uint16_t buttonScrollHighSpeedTime = 2000; // time after which the auto increase will get even faster
 
 // stating
 UIMode currentMode = OFF;
@@ -134,7 +136,6 @@ void updateUserInterface()
             if (numberToDisplay > 0) {
                 numberToDisplay--;
             }
-
         }
         if (enterButton.getPressFlag(true)) {
             // trigger the callback to change the DMX address:
@@ -163,6 +164,8 @@ HT16K33Button::HT16K33Button(uint8_t buttonIndex)
     _state = false;
     _prevState = false;
     _pressFlag = false;
+    _buttonPressStartMillis = 0;
+    _prevScrollUpdateMillis = 0;
 }
 
 void HT16K33Button::update(uint16_t keysBitmap[3])
@@ -175,7 +178,24 @@ void HT16K33Button::update(uint16_t keysBitmap[3])
 
     if (_state && !_prevState) {
         _pressFlag = true;
+        _buttonPressStartMillis = millis();
     }
+
+    uint64_t now = millis();
+    if (_state && (now - _buttonPressStartMillis >= 3 * buttonScrollSpeedInterval)) {
+        if (now - _buttonPressStartMillis >= buttonScrollHighSpeedTime) {
+            if (now - _prevScrollUpdateMillis >= buttonScrollSpeedInterval / 5) {
+                _prevScrollUpdateMillis = now;
+                _pressFlag = true;
+            }
+        } else {
+            if (now - _prevScrollUpdateMillis >= buttonScrollSpeedInterval) {
+                _prevScrollUpdateMillis = now;
+                _pressFlag = true;
+            }
+        }
+    }
+
     _prevState = _state;
 }
 bool HT16K33Button::getPressFlag(bool clearOnRead)
@@ -189,7 +209,7 @@ bool HT16K33Button::getPressFlag(bool clearOnRead)
 
 void HT16K33Button::clearPressFlag()
 {
-    if(_pressFlag){
+    if (_pressFlag) {
         _pressFlag = false;
     }
 }
