@@ -9,12 +9,15 @@ dmx_port_t dmxPort = 1; // by default use UART 1
 byte dmxInData[DMX_PACKET_SIZE];
 byte dmxOutData[DMX_PACKET_SIZE];
 
+// startAddress:
+uint16_t DMXFixtureStartAddress = 0;
+
 // stating:
 bool dmxIsConnected = false;
 
 callBack dmxMessageReceivedCallback;
 
-void setupDMX(callBack messageReceivedFunction, uint8_t uartPort)
+void setupDMX(callBack messageReceivedFunction, uint16_t dmxAddress, uint8_t uartPort)
 {
     // zero the dmx data array:
     clearDMXData();
@@ -29,6 +32,9 @@ void setupDMX(callBack messageReceivedFunction, uint8_t uartPort)
 
     /* Set the DMX hardware pins to the pins that we want to use. */
     dmx_set_pin(dmxPort, DMX_TX, DMX_RX, -1);
+    pinMode(DMX_TX_EN, OUTPUT);
+    enableDMXOutput(false); // start the dmx with the output configured as DMX Through
+    setDMXAddress(dmxAddress);
 
     dmxMessageReceivedCallback = messageReceivedFunction;
 }
@@ -107,4 +113,23 @@ void clearDMXData()
     for (int i = 0; i < DMX_PACKET_SIZE; i++) {
         dmxInData[i] = 0;
     }
+}
+
+void enableDMXOutput(bool enable)
+{
+    if (enable) {
+        digitalWrite(DMX_TX_EN, HIGH);
+    } else {
+        digitalWrite(DMX_TX_EN, LOW);
+    }
+}
+
+bool dmxConnected()
+{
+    return dmxIsConnected;
+}
+
+void setDMXAddress(uint16_t addr)
+{
+    DMXFixtureStartAddress = addr;
 }
