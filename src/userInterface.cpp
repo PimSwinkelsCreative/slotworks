@@ -6,15 +6,22 @@
 HT16K33 HT;
 
 // buttons
-bool downButtonState = false;
-bool upButtonState = false;
-bool enterButtonState = false;
+HT16K33Button downButton(0);
+HT16K33Button upButton(1);
+HT16K33Button enterButton(2);
+uint16_t buttonScrollSpeedInterval = 100; // milliseconds before auto increase while scrolling
+uint16_t buttonScrollHighSpeedTime = 2000; // time after which the auto increase will get even faster
 
-uint32_t start, stop;
+// stating
+UIMode currentMode = OFF;
+void (*UICallbackFunction)(uint16_t);
+
+// variables
+uint16_t numberToDisplay = 0;
 
 void setup7Segment()
 {
-    HT.begin(0x00); // only the I2C address needs to be given as input, the address is added in the class
+    HT.begin(0x00); // only the I2C address offset needs to be given as input, the address is added in the class
     HT.setBrightness(8); // 50% brightness
     HT.displayOn();
 }
@@ -49,7 +56,14 @@ void displayInteger(int16_t number, bool leadingZeroes)
             HT.setDisplayRaw(4, sevenSegmentASCII[13]);
         }
     }
+    HT.sendLed();
+}
 
+void clearDisplay()
+{
+    HT.setDisplayRaw(0, sevenSegmentASCII[0]);
+    HT.setDisplayRaw(2, sevenSegmentASCII[0]);
+    HT.setDisplayRaw(4, sevenSegmentASCII[0]);
     HT.sendLed();
 }
 
@@ -60,26 +74,12 @@ void readButtons()
         HT.readKeyRaw(keysBitmap);
     } else {
         keysBitmap[0] = 0;
+        keysBitmap[1] = 0;
+        keysBitmap[2] = 0;
     }
-
-    downButtonState = keysBitmap[0] & 0b1;
-    upButtonState = keysBitmap[0] & 0b10;
-    enterButtonState = keysBitmap[0] & 0b100;
-}
-
-bool downButtonPressed()
-{
-    return downButtonState;
-}
-
-bool upButtonPressed()
-{
-    return upButtonState;
-}
-
-bool enterButtonPressed()
-{
-    return enterButtonState;
+    upButton.update(keysBitmap);
+    downButton.update(keysBitmap);
+    enterButton.update(keysBitmap);
 }
 
 // debug leds:
@@ -101,5 +101,115 @@ void setDebugLed(uint8_t ledNr, bool state)
         digitalWrite(DEBUG_LED_1, state);
     } else {
         digitalWrite(DEBUG_LED_2, state);
+    }
+}
+
+void setUserInterfaceMode(UIMode mode, void (*callback)(uint16_t))
+{
+    if (mode != OFF && callback == NULL) {
+        Serial.println("ERROR! callback function required for this mode! Could not set mode");
+        return;
+    }
+    currentMode = mode;
+    UICallbackFunction = callback;
+}
+
+void updateUserInterface()
+{
+    // poll the buttons and set their flags:
+    readButtons();
+
+    // update the display:
+    switch (currentMode) {
+    case OFF:
+        /* code */
+        clearDisplay();
+        break;
+    case DMXADDR:
+        /* code */
+        if (upButton.getPressFlag(true)) {
+            if (numberToDisplay < 512) {
+                numberToDisplay++;
+            }
+        }
+        if (downButton.getPressFlag(true)) {
+            if (numberToDisplay > 0) {
+                numberToDisplay--;
+            }
+        }
+        if (enterButton.getPressFlag(true)) {
+            // trigger the callback to change the DMX address:
+            UICallbackFunction(numberToDisplay);
+        }
+
+        displayInteger(numberToDisplay);
+        break;
+    case IPADDR:
+        /* code */
+        break;
+
+    default:
+        break;
+    }
+}
+
+HT16K33Button::HT16K33Button(uint8_t buttonIndex)
+{
+    uint64_t bitmap = 1 << buttonIndex;
+
+    _buttonBitmap[0] = bitmap & 0xFFFF; // 16 LSB of bitmap
+    _buttonBitmap[1] = (bitmap & 0xFFFF0000) >> 16; // middle 16 bits of bitmap
+    _buttonBitmap[2] = (bitmap & 0xFFFF00000000) >> 32; // 16 MSB of bitmap
+
+    _state = false;
+    _prevState = false;
+    _pressFlag = false;
+    _buttonPressStartMillis = 0;
+    _prevScrollUpdateMillis = 0;
+}
+
+void HT16K33Button::update(uint16_t keysBitmap[3])
+{
+    _state = false;
+    for (int i = 0; i < 3; i++) {
+        if ((_buttonBitmap[i] & keysBitmap[i]) > 0)
+            _state = true;
+    }
+
+    if (_state && !_prevState) {
+        _pressFlag = true;
+        _buttonPressStartMillis = millis();
+    }
+
+    uint64_t now = millis();
+    if (_state && (now - _buttonPressStartMillis >= 3 * buttonScrollSpeedInterval)) {
+        if (now - _buttonPressStartMillis >= buttonScrollHighSpeedTime) {
+            if (now - _prevScrollUpdateMillis >= buttonScrollSpeedInterval / 5) {
+                _prevScrollUpdateMillis = now;
+                _pressFlag = true;
+            }
+        } else {
+            if (now - _prevScrollUpdateMillis >= buttonScrollSpeedInterval) {
+                _prevScrollUpdateMillis = now;
+                _pressFlag = true;
+            }
+        }
+    }
+
+    _prevState = _state;
+}
+bool HT16K33Button::getPressFlag(bool clearOnRead)
+{
+    bool output = _pressFlag;
+    if (clearOnRead) {
+        clearPressFlag();
+    }
+    return output;
+}
+
+void HT16K33Button::clearPressFlag()
+{
+    if (_pressFlag) {
+        _pressFlag = false;
     }
 }
