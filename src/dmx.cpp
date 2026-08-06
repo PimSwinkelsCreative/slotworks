@@ -1,6 +1,6 @@
 #include "dmx.h"
+#include "driver/uart.h"    //required for temp UART inversion.
 #include "pinout.h"
-#include "driver/uart.h"
 
 #define DEBUG_DMX
 
@@ -35,10 +35,15 @@ void setupDMX(callBack messageReceivedFunction, uart_port_t uartPort)
 
     /* Set the DMX hardware pins to the pins that we want to use. */
     dmx_set_pin(dmxPort, DMX_TX, DMX_RX, -1);
+
+    // TEMP FIX! RS485 to UART converter is deisgned with inverted output. Idle level should be high, but is low...
+    // Will be fixed in next iteration
     uart_set_line_inverse(dmxPort, DMX_RX);
     uart_set_line_inverse(dmxPort, DMX_TX);
+
+    // start the dmx with the output configured as DMX Through
     pinMode(DMX_TX_EN, OUTPUT);
-    enableDMXOutput(false); // start the dmx with the output configured as DMX Through
+    enableDMXOutput(false);
 
     dmxMessageReceivedCallback = messageReceivedFunction;
 }
@@ -50,11 +55,6 @@ void updateDMXInput()
     dmx_packet_t packet;
 
     uint32_t receiveStartTime = millis();
-
-    // // workaround for startup issue. not sure why this is required
-    // if (millis() < 1000) {
-    //     return;
-    // }
 
     if (dmx_receive(dmxPort, &packet, DMX_TIMEOUT_TICK)) {
         // If this code gets called, it means we've received DMX data!
@@ -123,9 +123,9 @@ void clearDMXData()
 void enableDMXOutput(bool enable)
 {
     if (enable) {
-        digitalWrite(DMX_TX_EN, HIGH);
-    } else {
         digitalWrite(DMX_TX_EN, LOW);
+    } else {
+        digitalWrite(DMX_TX_EN, HIGH);
     }
 }
 
