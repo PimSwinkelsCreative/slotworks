@@ -113,7 +113,7 @@ void setDebugLed(uint8_t ledNr, bool state)
 
 void setUserInterfaceMode(UIMode mode, void (*callback)(uint16_t))
 {
-    if (mode != OFF && callback == NULL) {
+    if (mode == DMXADDR && callback == NULL) {
         Serial.println("ERROR! callback function required for this mode! Could not set mode");
         return;
     }
@@ -126,6 +126,11 @@ void startDisplayBlink(uint16_t duration)
     displayBlinkActive = true;
     displayBlinkTime = duration;
     lastDisplayBlinkStart = millis();
+}
+
+void setDisplayValue(int16_t value)
+{
+    numberToDisplay = value;
 }
 
 void updateUserInterface()
@@ -168,6 +173,9 @@ void updateUserInterface()
         break;
     case IPADDR:
 
+        break;
+    case VALUE:
+        displayInteger(numberToDisplay);
         break;
 
     default:

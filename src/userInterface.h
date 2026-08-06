@@ -7,10 +7,12 @@ const uint16_t defaultDisplayBlinkTime = 200; // time in milliseconds
 // user interface modes:
 enum UIMode { OFF,
     DMXADDR,
-    IPADDR };
+    IPADDR,
+    VALUE };
 
 void setUserInterfaceMode(UIMode mode, void (*callback)(uint16_t) = NULL);
 void updateUserInterface();
+void setDisplayValue(int16_t value);
 
 // 7 segment display:
 #define HT16K33_I2C_ADDR 0x70

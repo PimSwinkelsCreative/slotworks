@@ -1,9 +1,10 @@
 #include "dmx.h"
 #include "pinout.h"
+#include "driver/uart.h"
 
 #define DEBUG_DMX
 
-dmx_port_t dmxPort = 1; // by default use UART 1
+uart_port_t dmxPort = UART_NUM_1; // by default use UART 1
 
 // array to store the DMX data
 byte dmxInData[DMX_PACKET_SIZE];
@@ -17,7 +18,7 @@ bool dmxIsConnected = false;
 
 callBack dmxMessageReceivedCallback;
 
-void setupDMX(callBack messageReceivedFunction, uint16_t dmxAddress, uint8_t uartPort)
+void setupDMX(callBack messageReceivedFunction, uart_port_t uartPort)
 {
     // zero the dmx data array:
     clearDMXData();
@@ -26,15 +27,18 @@ void setupDMX(callBack messageReceivedFunction, uint16_t dmxAddress, uint8_t uar
 
     // install the dmx driver:
     dmx_config_t config = DMX_CONFIG_DEFAULT;
-    dmx_personality_t personalities[] = { };
-    int personality_count = 0;
+    dmx_personality_t personalities[] = {
+        { 1, "Default Personality" }
+    };
+    int personality_count = 1;
     dmx_driver_install(dmxPort, &config, personalities, personality_count);
 
     /* Set the DMX hardware pins to the pins that we want to use. */
     dmx_set_pin(dmxPort, DMX_TX, DMX_RX, -1);
+    uart_set_line_inverse(dmxPort, DMX_RX);
+    uart_set_line_inverse(dmxPort, DMX_TX);
     pinMode(DMX_TX_EN, OUTPUT);
     enableDMXOutput(false); // start the dmx with the output configured as DMX Through
-    setDMXAddress(dmxAddress);
 
     dmxMessageReceivedCallback = messageReceivedFunction;
 }
@@ -47,14 +51,15 @@ void updateDMXInput()
 
     uint32_t receiveStartTime = millis();
 
-    // workaround for startup issue. not sure why this is required
-    if (millis() < 1000) {
-        return;
-    }
+    // // workaround for startup issue. not sure why this is required
+    // if (millis() < 1000) {
+    //     return;
+    // }
 
     if (dmx_receive(dmxPort, &packet, DMX_TIMEOUT_TICK)) {
         // If this code gets called, it means we've received DMX data!
         receiveStartTime = millis();
+
         // check for dmx errors
         if (!packet.err) {
             /* If this is the first DMX data we've received, lets log it! */
@@ -127,9 +132,4 @@ void enableDMXOutput(bool enable)
 bool dmxConnected()
 {
     return dmxIsConnected;
-}
-
-void setDMXAddress(uint16_t addr)
-{
-    DMXFixtureStartAddress = addr;
 }
