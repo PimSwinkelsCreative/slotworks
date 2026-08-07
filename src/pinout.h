@@ -12,12 +12,23 @@
 #define I2C_SDA 8
 
 // Ethernet
+#define WAVESHARE_PINOUT
+
+#ifndef WAVESHARE_PINOUT
 #define W5500_INTN 9
 #define W5500_SCSN 10
 #define W5500_MOSI 11
 #define W5500_SCLK 12
 #define W5500_MISO 13
 #define W5500_RSTN 14
+#else
+#define W5500_INTN 10
+#define W5500_SCSN 14
+#define W5500_MOSI 11
+#define W5500_SCLK 13
+#define W5500_MISO 12
+#define W5500_RSTN 9
+#endif
 
 // Modbus:
 #define MODBUS_RX 42

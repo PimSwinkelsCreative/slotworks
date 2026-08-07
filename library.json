@@ -21,6 +21,8 @@
     "dependencies": 
     {
         "HT16K33": "https://github.com/lpaseen/ht16k33#v1.0.3",
-        "esp_dmx": "https://github.com/davispolito/esp_dmx"
+        "esp_dmx": "https://github.com/davispolito/esp_dmx",
+        "arduino-libraries/Ethernet": "2.0.2",
+        "SPI": "1.0.0"
     }
 }
