@@ -1,5 +1,4 @@
 #include "dmx.h"
-#include "driver/uart.h"    //required for temp UART inversion.
 #include "pinout.h"
 
 #define DEBUG_DMX
@@ -35,11 +34,6 @@ void setupDMX(callBack messageReceivedFunction, uart_port_t uartPort)
 
     /* Set the DMX hardware pins to the pins that we want to use. */
     dmx_set_pin(dmxPort, DMX_TX, DMX_RX, -1);
-
-    // TEMP FIX! RS485 to UART converter is deisgned with inverted output. Idle level should be high, but is low...
-    // Will be fixed in next iteration
-    uart_set_line_inverse(dmxPort, DMX_RX);
-    uart_set_line_inverse(dmxPort, DMX_TX);
 
     // start the dmx with the output configured as DMX Through
     pinMode(DMX_TX_EN, OUTPUT);
