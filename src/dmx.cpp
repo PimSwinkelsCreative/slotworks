@@ -92,10 +92,16 @@ void dmxSetByte(uint16_t address, uint8_t value)
     dmxOutData[address] = value;
 }
 
-void updateDMXOutput()
+void updateDMXOutput(int16_t packetSize)
 {
-    dmx_write(dmxPort, dmxOutData, DMX_PACKET_SIZE);
-    dmx_send_num(dmxPort, DMX_PACKET_SIZE);
+    if (packetSize > DMX_PACKET_SIZE) {
+        packetSize = DMX_PACKET_SIZE;
+    }
+    if(packetSize < 1) {
+        packetSize = DMX_PACKET_SIZE;
+    }
+    dmx_write(dmxPort, dmxOutData, packetSize);
+    dmx_send_num(dmxPort, packetSize);
 }
 
 byte getDMXValue(uint16_t channel)

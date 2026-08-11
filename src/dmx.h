@@ -15,3 +15,7 @@ void clearDMXData();
 void enableDMXOutput(bool enable = true);
 
 bool dmxConnected();
+
+void updateDMXOutput(int16_t packetSize = DMX_PACKET_SIZE);
+
+void dmxSetByte(uint16_t address, uint8_t value);
