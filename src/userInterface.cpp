@@ -11,10 +11,16 @@ uint16_t displayBlinkTime = defaultDisplayBlinkTime; // time in milliseconds
 HT16K33Button downButton(0, true);
 HT16K33Button upButton(1, true);
 HT16K33Button enterButton(2);
-uint16_t buttonScrollSpeedInterval = 100; // milliseconds before auto increase while scrolling
-uint16_t buttonScrollHighSpeedTime = 2000; // time after which the auto increase will get even faster
+uint16_t buttonScrollSpeedInterval = 250; // delay before auto-repeat starts while holding a button
+uint16_t buttonScrollHighSpeedTime = 2500; // time after which the auto-repeat becomes faster
+const uint16_t uiIdleDisplayTimeoutMs = 2000; // return to the configured value after inactivity
+uint32_t userInterfacePollIntervalMs = 50; // default time between UI updates when polled in a tight loop
 
 uint64_t lastButtonPress = 0;
+uint64_t lastUIActivityMs = 0;
+uint64_t lastUserInterfacePollMs = 0;
+uint16_t configuredDisplayValue = 0;
+bool uiIsEditingValue = false;
 
 // stating
 UIMode currentMode = OFF;
@@ -119,6 +125,11 @@ void setUserInterfaceMode(UIMode mode, void (*callback)(uint16_t))
     }
     currentMode = mode;
     UICallbackFunction = callback;
+    uiIsEditingValue = false;
+    lastUIActivityMs = millis();
+    if (mode == DMXADDR) {
+        numberToDisplay = configuredDisplayValue;
+    }
 }
 
 void startDisplayBlink(uint16_t duration)
@@ -128,13 +139,33 @@ void startDisplayBlink(uint16_t duration)
     lastDisplayBlinkStart = millis();
 }
 
+void setUserInterfacePollInterval(uint32_t intervalMs)
+{
+    if (intervalMs == 0) {
+        intervalMs = 1;
+    }
+    userInterfacePollIntervalMs = intervalMs;
+}
+
 void setDisplayValue(int16_t value)
 {
-    numberToDisplay = value;
+    configuredDisplayValue = value;
+    if (!uiIsEditingValue) {
+        numberToDisplay = value;
+    }
+
+    // Do not treat an external status update as user activity. Otherwise a steady DMX stream will keep
+    // resetting the idle timeout and the edited value will never revert to the saved configuration.
 }
 
 void updateUserInterface()
 {
+    uint32_t now = millis();
+    if ((now - lastUserInterfacePollMs) < userInterfacePollIntervalMs) {
+        return;
+    }
+    lastUserInterfacePollMs = now;
+
     // poll the buttons and set their flags:
     readButtons();
 
@@ -145,18 +176,32 @@ void updateUserInterface()
         break;
     case DMXADDR:
         if (upButton.getPressFlag(true)) {
+            uiIsEditingValue = true;
+            lastUIActivityMs = millis();
             if (numberToDisplay < 512) {
                 numberToDisplay++;
             }
         }
         if (downButton.getPressFlag(true)) {
+            uiIsEditingValue = true;
+            lastUIActivityMs = millis();
             if (numberToDisplay > 0) {
                 numberToDisplay--;
             }
         }
         if (enterButton.getPressFlag(true)) {
+            uiIsEditingValue = false;
+            lastUIActivityMs = millis();
             // trigger the callback to change the DMX address:
-            UICallbackFunction(numberToDisplay);
+            if (UICallbackFunction != NULL) {
+                UICallbackFunction(numberToDisplay);
+            }
+            configuredDisplayValue = numberToDisplay;
+        }
+
+        if ((millis() - lastUIActivityMs) > uiIdleDisplayTimeoutMs) {
+            uiIsEditingValue = false;
+            numberToDisplay = configuredDisplayValue;
         }
 
         if (displayBlinkActive) {
@@ -208,24 +253,27 @@ void HT16K33Button::update(uint16_t keysBitmap[3])
             _state = true;
     }
 
+    uint64_t now = millis();
+
     if (_state && !_prevState) {
         _pressFlag = true;
-        _buttonPressStartMillis = millis();
+        _buttonPressStartMillis = now;
+        _prevScrollUpdateMillis = now;
     }
 
-    if (_scrollingEnabled) {
-        uint64_t now = millis();
-        if (_state && (now - _buttonPressStartMillis >= 3 * buttonScrollSpeedInterval)) {
-            if (now - _buttonPressStartMillis >= buttonScrollHighSpeedTime) {
-                if (now - _prevScrollUpdateMillis >= buttonScrollSpeedInterval / 5) {
-                    _prevScrollUpdateMillis = now;
-                    _pressFlag = true;
-                }
-            } else {
-                if (now - _prevScrollUpdateMillis >= buttonScrollSpeedInterval) {
-                    _prevScrollUpdateMillis = now;
-                    _pressFlag = true;
-                }
+    if (_scrollingEnabled && _state) {
+        uint32_t repeatInterval = buttonScrollSpeedInterval;
+        if (now - _buttonPressStartMillis >= buttonScrollHighSpeedTime) {
+            repeatInterval = buttonScrollSpeedInterval / 4;
+            if (repeatInterval == 0) {
+                repeatInterval = 1;
+            }
+        }
+
+        if (now - _buttonPressStartMillis >= buttonScrollSpeedInterval) {
+            if (now - _prevScrollUpdateMillis >= repeatInterval) {
+                _prevScrollUpdateMillis = now;
+                _pressFlag = true;
             }
         }
     }

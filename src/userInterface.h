@@ -11,6 +11,7 @@ enum UIMode { OFF,
     VALUE };
 
 void setUserInterfaceMode(UIMode mode, void (*callback)(uint16_t) = NULL);
+void setUserInterfacePollInterval(uint32_t intervalMs);
 void updateUserInterface();
 void setDisplayValue(int16_t value);
 
