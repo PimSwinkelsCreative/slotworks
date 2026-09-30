@@ -38,7 +38,8 @@ uint32_t dmxRxBytesCapturedLastPrintMs = 0;
 // break detection while still accepting a real DMX break.
 #define DMX_BREAK_MIN_US 40
 
-enum DmxRxState {
+enum DmxRxState
+{
     DMX_RX_IDLE = 0,
     DMX_RX_WAIT_START_CODE = 1,
     DMX_RX_READING = 2
@@ -62,48 +63,53 @@ callBack dmxMessageReceivedCallback;
 static void dmxRxTaskEntry(void *param)
 {
     (void)param;
-    for (;;) {
+    for (;;)
+    {
         uart_event_t event;
-        if (xQueueReceive(dmxRxQueue, &event, portMAX_DELAY) != pdTRUE) {
+        if (xQueueReceive(dmxRxQueue, &event, portMAX_DELAY) != pdTRUE)
+        {
             continue;
         }
 
-        switch (event.type) {
-            case UART_BREAK:
-                dmxDetectedFrames++;
+        switch (event.type)
+        {
+        case UART_BREAK:
+            dmxDetectedFrames++;
+            dmxRxState = DMX_RX_WAIT_START_CODE;
+            dmxCaptureIndex = 0;
+            dmxLastByteMs = millis();
+            uart_flush_input(dmxRxPort);
+            break;
+
+        case UART_FRAME_ERR:
+            dmxInvalidBreaks++;
+            dmxRxState = DMX_RX_WAIT_START_CODE;
+            dmxCaptureIndex = 0;
+            dmxLastByteMs = millis();
+            uart_flush_input(dmxRxPort);
+            break;
+
+        case UART_DATA:
+        case UART_PATTERN_DET:
+            if (dmxRxState == DMX_RX_IDLE)
+            {
                 dmxRxState = DMX_RX_WAIT_START_CODE;
                 dmxCaptureIndex = 0;
                 dmxLastByteMs = millis();
-                uart_flush_input(dmxRxPort);
-                break;
+            }
+            updateDMXInput();
+            break;
 
-            case UART_FRAME_ERR:
-                dmxInvalidBreaks++;
-                dmxRxState = DMX_RX_WAIT_START_CODE;
-                dmxCaptureIndex = 0;
-                dmxLastByteMs = millis();
-                uart_flush_input(dmxRxPort);
-                break;
-
-            case UART_DATA:
-            case UART_PATTERN_DET:
-                if (dmxRxState == DMX_RX_IDLE) {
-                    dmxRxState = DMX_RX_WAIT_START_CODE;
-                    dmxCaptureIndex = 0;
-                    dmxLastByteMs = millis();
-                }
-                updateDMXInput();
-                break;
-
-            default:
-                break;
+        default:
+            break;
         }
     }
 }
 
 static void armDMXBreakInterrupt()
 {
-    if (dmxBreakInterruptArmed) {
+    if (dmxBreakInterruptArmed)
+    {
         return;
     }
 
@@ -133,7 +139,11 @@ static void configureUart(uart_port_t uartNum, int txPin, int rxPin)
         .stop_bits = UART_STOP_BITS_2,
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
         .rx_flow_ctrl_thresh = 0,
+#if ESP_IDF_VERSION_MAJOR >= 5
         .source_clk = UART_SCLK_DEFAULT,
+#else
+        .source_clk = UART_SCLK_APB,
+#endif
     };
 
     uart_param_config(uartNum, &config);
@@ -162,7 +172,8 @@ void setupDMX(callBack messageReceivedFunction,
     dmxRxPin = rxPin;
     dmxTxPin = txPin;
 
-    if (txEnablePin >= 0) {
+    if (txEnablePin >= 0)
+    {
         dmxTxEnablePin = txEnablePin;
     }
 
@@ -173,23 +184,30 @@ void setupDMX(callBack messageReceivedFunction,
     // ESP32-S3 UART drivers are stable when each port is installed with a valid RX and TX buffer. A zero-sized
     // TX buffer can leave the driver in a bad state for direct DMX writes, so we install both ports with
     // non-zero buffers and then configure the pins.
-    if (!uart_is_driver_installed(dmxRxPort)) {
+    if (!uart_is_driver_installed(dmxRxPort))
+    {
         uart_driver_install(dmxRxPort, DMX_RX_BUFFER_SIZE, DMX_TX_BUFFER_SIZE, 20, &dmxRxQueue, 0);
-    } else {
+    }
+    else
+    {
         // If the driver is already installed, keep using the same event queue for the RX task.
         dmxRxQueue = NULL;
     }
-    if (dmxUseSeparateUarts && !uart_is_driver_installed(dmxTxPort)) {
+    if (dmxUseSeparateUarts && !uart_is_driver_installed(dmxTxPort))
+    {
         uart_driver_install(dmxTxPort, DMX_RX_BUFFER_SIZE, DMX_TX_BUFFER_SIZE, 0, NULL, 0);
     }
 
-    if (dmxUseSeparateUarts) {
+    if (dmxUseSeparateUarts)
+    {
         configureUart(dmxRxPort, UART_PIN_NO_CHANGE, dmxRxPin);
         uart_flush_input(dmxRxPort);
 
         configureUart(dmxTxPort, dmxTxPin, UART_PIN_NO_CHANGE);
         uart_flush(dmxTxPort);
-    } else {
+    }
+    else
+    {
         configureUart(dmxRxPort, dmxTxPin, dmxRxPin);
         uart_flush_input(dmxRxPort);
         uart_flush(dmxRxPort);
@@ -202,7 +220,8 @@ void setupDMX(callBack messageReceivedFunction,
     pinMode(dmxRxPin, INPUT);
     enableDMXOutput(false);
 
-    if (dmxRxTaskHandle == NULL) {
+    if (dmxRxTaskHandle == NULL)
+    {
         xTaskCreatePinnedToCore(dmxRxTaskEntry, "dmxRxTask", 4096, NULL, 3, &dmxRxTaskHandle, 1);
     }
 
@@ -214,7 +233,8 @@ void updateDMXInput()
 {
     const uint32_t nowMs = millis();
 
-    if (nowMs - dmxDetectedFramesLastPrintMs >= 1000) {
+    if (nowMs - dmxDetectedFramesLastPrintMs >= 1000)
+    {
         dmxDetectedFramesLastPrintMs = nowMs;
         dmxDetectedFramesLastSecond = dmxDetectedFrames;
         dmxDetectedFrames = 0;
@@ -224,34 +244,43 @@ void updateDMXInput()
         dmxRxBytesCaptured = 0;
     }
 
-    if (dmxRxState == DMX_RX_IDLE) {
+    if (dmxRxState == DMX_RX_IDLE)
+    {
         return;
     }
 
     size_t availableBytes = 0;
-    if (uart_get_buffered_data_len(dmxRxPort, &availableBytes) != ESP_OK) {
+    if (uart_get_buffered_data_len(dmxRxPort, &availableBytes) != ESP_OK)
+    {
         return;
     }
 
-    while (availableBytes > 0) {
+    while (availableBytes > 0)
+    {
         uint8_t byte = 0;
         const int received = uart_read_bytes(dmxRxPort, &byte, 1, 0);
-        if (received != 1) {
+        if (received != 1)
+        {
             break;
         }
 
         dmxLastByteMs = millis();
         dmxRxBytesCaptured++;
 
-        if (dmxRxState == DMX_RX_WAIT_START_CODE) {
-            if (byte == 0x00) {
+        if (dmxRxState == DMX_RX_WAIT_START_CODE)
+        {
+            if (byte == 0x00)
+            {
                 dmxRxState = DMX_RX_READING;
-            } else {
+            }
+            else
+            {
                 dmxRxState = DMX_RX_IDLE;
                 uart_flush_input(dmxRxPort);
                 break;
             }
-            if (uart_get_buffered_data_len(dmxRxPort, &availableBytes) != ESP_OK) {
+            if (uart_get_buffered_data_len(dmxRxPort, &availableBytes) != ESP_OK)
+            {
                 break;
             }
             continue;
@@ -260,41 +289,49 @@ void updateDMXInput()
         dmxInData[dmxCaptureIndex + 1] = byte;
         dmxCaptureIndex++;
 
-        if (dmxCaptureIndex >= 512) {
+        if (dmxCaptureIndex >= 512)
+        {
             dmxRxState = DMX_RX_IDLE;
             lastDmxPacketMs = millis();
-            if (!dmxIsConnected) {
+            if (!dmxIsConnected)
+            {
 #ifdef DEBUG_DMX
                 Serial.println("DMX is connected!");
 #endif
                 dmxIsConnected = true;
             }
-            if (dmxMessageReceivedCallback != nullptr) {
+            if (dmxMessageReceivedCallback != nullptr)
+            {
                 dmxMessageReceivedCallback();
             }
             break;
         }
 
-        if (uart_get_buffered_data_len(dmxRxPort, &availableBytes) != ESP_OK) {
+        if (uart_get_buffered_data_len(dmxRxPort, &availableBytes) != ESP_OK)
+        {
             break;
         }
     }
 
-    if (dmxRxState == DMX_RX_READING && (millis() - dmxLastByteMs > 20)) {
+    if (dmxRxState == DMX_RX_READING && (millis() - dmxLastByteMs > 20))
+    {
         dmxRxState = DMX_RX_IDLE;
         lastDmxPacketMs = millis();
-        if (!dmxIsConnected) {
+        if (!dmxIsConnected)
+        {
 #ifdef DEBUG_DMX
             Serial.println("DMX is connected!");
 #endif
             dmxIsConnected = true;
         }
-        if (dmxMessageReceivedCallback != nullptr) {
+        if (dmxMessageReceivedCallback != nullptr)
+        {
             dmxMessageReceivedCallback();
         }
     }
 
-    if (dmxIsConnected && (millis() - lastDmxPacketMs > DMX_DISCONNECT_TIMEOUT_MS)) {
+    if (dmxIsConnected && (millis() - lastDmxPacketMs > DMX_DISCONNECT_TIMEOUT_MS))
+    {
 #ifdef DEBUG_DMX
         Serial.println("DMX was disconnected.");
 #endif
@@ -306,7 +343,8 @@ void dmxSetByte(uint16_t address, uint8_t value)
 {
     // DMX channel numbers are 1-based. The start code is stored separately at index 0, so the first data channel
     // is at index 1 in the raw DMX buffer.
-    if (address < 1 || address > 512) {
+    if (address < 1 || address > 512)
+    {
         return;
     }
     dmxOutData[address] = value;
@@ -314,14 +352,17 @@ void dmxSetByte(uint16_t address, uint8_t value)
 
 void updateDMXOutput(int16_t packetSize)
 {
-    if (packetSize > DMX_PACKET_SIZE) {
+    if (packetSize > DMX_PACKET_SIZE)
+    {
         packetSize = DMX_PACKET_SIZE;
     }
-    if (packetSize < 1) {
+    if (packetSize < 1)
+    {
         packetSize = DMX_PACKET_SIZE;
     }
 
-    if (!uart_is_driver_installed(dmxTxPort)) {
+    if (!uart_is_driver_installed(dmxTxPort))
+    {
         return;
     }
 
@@ -330,7 +371,7 @@ void updateDMXOutput(int16_t packetSize)
     // The ESP32 UART can generate the break by forcing the TX line low for a sustained interval, then sending
     // the actual DMX payload as standard 8N2 bytes.
     const uint32_t breakDurationUs = 100; // ~92us minimum break; using a slightly larger value keeps it robust.
-    const uint32_t mabDurationUs = 12;     // DMX MAB is approximately 12us.
+    const uint32_t mabDurationUs = 12;    // DMX MAB is approximately 12us.
 
     // Force the UART TX line low to create the DMX break. The UART peripheral needs to be reconnected to the
     // TX pin before actual DMX bytes are written, otherwise the GPIO pin remains in a plain digital-output mode
@@ -356,7 +397,8 @@ void updateDMXOutput(int16_t packetSize)
     memcpy(&txPacket[1], &dmxOutData[1], packetSize);
 
     const int startCodeWritten = uart_write_bytes(dmxTxPort, (const char *)txPacket, packetSize + 1);
-    if (startCodeWritten < 0) {
+    if (startCodeWritten < 0)
+    {
 #ifdef DEBUG_DMX
         Serial.println("TX UART write failed.");
 #endif
@@ -369,7 +411,8 @@ void updateDMXOutput(int16_t packetSize)
 
 byte getDMXValue(uint16_t channel)
 {
-    if (channel < 1 || channel > 512) {
+    if (channel < 1 || channel > 512)
+    {
         Serial.print("ERR: channel out of bounds");
         return 0;
     }
@@ -378,7 +421,8 @@ byte getDMXValue(uint16_t channel)
 
 void clearDMXData()
 {
-    for (int i = 0; i < DMX_PACKET_SIZE; i++) {
+    for (int i = 0; i < DMX_PACKET_SIZE; i++)
+    {
         dmxInData[i] = 0;
         dmxOutData[i] = 0;
     }
@@ -389,7 +433,8 @@ void enableDMXOutput(bool enable)
 {
     // This pin controls the external DMX transceiver direction. The board hardware keeps the receive path
     // active at all times, while the TX path is only enabled when the application is actively sending.
-    if (dmxTxEnablePin < 0) {
+    if (dmxTxEnablePin < 0)
+    {
         dmxTxDriverEnabled = false;
         return;
     }
