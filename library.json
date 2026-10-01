@@ -18,9 +18,14 @@
     "frameworks": "arduino",
     "platforms": "espressif32",
     "headers": "Slotworks.h",
-    "dependencies": 
-    {
-        "HT16K33": "https://github.com/lpaseen/ht16k33#v1.0.3",
-        "Ethernet": "arduino-libraries/Ethernet#v2.0.2"
-    }
+    "dependencies": [
+        {
+            "name": "HT16K33",
+            "version": "https://github.com/lpaseen/ht16k33#v1.0.3"
+        },
+        {
+            "name": "arduino-libraries/Ethernet",
+            "version": "2.0.2"
+        }
+    ]
 }
