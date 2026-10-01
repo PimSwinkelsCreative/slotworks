@@ -24,7 +24,7 @@
             "version": "https://github.com/lpaseen/ht16k33#v1.0.3"
         },
         {
-            "name": "arduino-libraries/Ethernet",
+            "name": "Ethernet",
             "version": "2.0.2"
         }
     ]
